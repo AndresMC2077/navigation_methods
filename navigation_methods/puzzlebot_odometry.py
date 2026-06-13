@@ -13,37 +13,18 @@ class PuzzlebotOdometry(Node):
         super().__init__("puzzlebot_odometry")
 
         self.get_logger().info("Nodo de odometría iniciado")
-
-        # -----------------------------
-        # Parámetros físicos del Puzzlebot
-        # -----------------------------
         self.r = 0.0505      # Radio de rueda [m]
         self.l = 0.183       # Distancia entre ruedas [m]
         self.rate = 100      # Frecuencia de odometría [Hz]
-
-        # -----------------------------
-        # Variables de velocidad
-        # -----------------------------
         self.wr = 0.0
         self.wl = 0.0
         self.v = 0.0
         self.w = 0.0
-
-        # -----------------------------
-        # Pose inicial
-        # -----------------------------
         self.x = 0.0
         self.y = 0.0
         self.theta = 0.0
-
-        # -----------------------------
-        # Publicador de odometría
-        # -----------------------------
         self.pub_odom = self.create_publisher(Pose, "/odom", 10)
 
-        # -----------------------------
-        # Suscriptores de encoders
-        # -----------------------------
         self.create_subscription(
             Float32,
             "/VelocityEncR",
@@ -58,9 +39,6 @@ class PuzzlebotOdometry(Node):
             qos.qos_profile_sensor_data
         )
 
-        # -----------------------------
-        # Timer
-        # -----------------------------
         self.t0 = time.time()
         self.create_timer(1.0 / self.rate, self.cb_odometry)
 
@@ -78,15 +56,9 @@ class PuzzlebotOdometry(Node):
         dt = now - self.t0
         self.t0 = now
 
-        # -----------------------------
-        # Modelo diferencial
-        # -----------------------------
         self.v = (self.r / 2.0) * (self.wr + self.wl)
         self.w = (self.r / self.l) * (self.wr - self.wl)
 
-        # -----------------------------
-        # Integración de odometría
-        # -----------------------------
         if abs(self.w) < 0.0001:
             self.x += dt * self.v * math.cos(self.theta)
             self.y += dt * self.v * math.sin(self.theta)
@@ -105,9 +77,6 @@ class PuzzlebotOdometry(Node):
 
         self.theta = self.normalize_angle(self.theta)
 
-        # -----------------------------
-        # Publicar pose
-        # -----------------------------
         msg = Pose()
         msg.x = self.x
         msg.y = self.y
