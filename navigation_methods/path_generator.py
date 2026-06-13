@@ -10,15 +10,8 @@ class PathGenerator(Node):
         super().__init__("path_generator")
 
         self.get_logger().info("Generador de trayectoria iniciado")
-
         self.pub_point = self.create_publisher(Pose, "/next_point", 10)
         self.create_subscription(Bool, "/arrived", self.cb_arrived, 10)
-
-        # -----------------------------
-        # Puntos que debe visitar el robot
-        # Primero va a (2, 2)
-        # Después va a (0, 2)
-        # -----------------------------
         self.point_list = [
             [2.0, 2.0],
             [0.0, 2.0]
