@@ -51,10 +51,8 @@ class PuzzlebotPotentialField(Node):
         self.goal_tolerance = 0.10
         self.angle_limit_to_move = 0.9
 
-        # Estado de llegada
         self.arrived_state = False
 
-    # Callbacks
     def cb_odom(self, msg):
         self.x = msg.x
         self.y = msg.y
@@ -74,18 +72,12 @@ class PuzzlebotPotentialField(Node):
     def clamp(self, value, min_value, max_value):
         return max(min(value, max_value), min_value)
 
-    # -----------------------------
-    # Detener robot
-    # -----------------------------
     def stop_robot(self):
         msg = Twist()
         msg.linear.x = 0.0
         msg.angular.z = 0.0
         self.pub_cmd.publish(msg)
 
-    # -----------------------------
-    # Publicar llegada
-    # -----------------------------
     def publish_arrived(self, value):
         msg = Bool()
         msg.data = value
