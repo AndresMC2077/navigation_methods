@@ -11,13 +11,8 @@ import math
 import random
 
 
-# =========================================================================
-# 1. PREPARACIÓN DEL ENTORNO Y CONVERSIONES
-# =========================================================================
-
 TURTLESIM_MAX_X = 11.0
 TURTLESIM_MAX_Y = 11.0
-
 
 def generar_grid_desde_imagen(ruta_imagen, celdas_ancho=60, celdas_alto=60, radio_robot_px=12):
     img_gris = cv2.imread(ruta_imagen, 0)
@@ -25,10 +20,8 @@ def generar_grid_desde_imagen(ruta_imagen, celdas_ancho=60, celdas_alto=60, radi
     if img_gris is None:
         raise FileNotFoundError(f"No se encontró la imagen: {ruta_imagen}")
 
-    # Obstáculos en negro -> ocupados
+    # Obstáculos
     _, mapa_binario = cv2.threshold(img_gris, 127, 255, cv2.THRESH_BINARY_INV)
-
-    # Inflar obstáculos para tomar en cuenta el tamaño del robot
     kernel = cv2.getStructuringElement(
         cv2.MORPH_ELLIPSE,
         (radio_robot_px * 2, radio_robot_px * 2)
@@ -88,12 +81,8 @@ def mundo_a_pixel(x_mundo, y_mundo, ancho_px, alto_px):
     py = max(0, min(alto_px - 1, py))
 
     return px, py
-
-
-# =========================================================================
-# 2. FUNCIONES AUXILIARES PARA RRT
-# =========================================================================
-
+    
+#funciones de rrt
 def punto_libre(grid, x, y, celdas_ancho, celdas_alto):
     if not (0.0 <= x <= TURTLESIM_MAX_X and 0.0 <= y <= TURTLESIM_MAX_Y):
         return False
@@ -104,9 +93,6 @@ def punto_libre(grid, x, y, celdas_ancho, celdas_alto):
 
 
 def segmento_libre(grid, p1, p2, celdas_ancho, celdas_alto, pasos=25):
-    """
-    Verifica que todo el segmento entre p1 y p2 esté libre.
-    """
     x1, y1 = p1
     x2, y2 = p2
 
@@ -154,11 +140,7 @@ def avanzar_hacia(p_desde, p_hacia, paso):
 
     return x_nuevo, y_nuevo
 
-
-# =========================================================================
-# 3. PLANIFICADOR RRT
-# =========================================================================
-
+#Planificador
 def algoritmo_rrt(
     grid,
     inicio_mundo,
@@ -170,12 +152,6 @@ def algoritmo_rrt(
     probabilidad_meta=0.18,
     tolerancia_meta=0.35
 ):
-    """
-    RRT básico.
-
-    La ruta final se reconstruye siguiendo los padres del árbol.
-    Por eso la ruta final sí pertenece al árbol RRT.
-    """
 
     inicio = (inicio_mundo[0], inicio_mundo[1])
     meta = (meta_mundo[0], meta_mundo[1])
@@ -241,20 +217,11 @@ def algoritmo_rrt(
 
     return None, aristas
 
-
-# =========================================================================
-# 4. VISUALIZACIÓN EN OPENCV
-# =========================================================================
-
+#vizualización
 def dibujar_grid_ocupacion(img_color, grid, celdas_ancho, celdas_alto):
-    """
-    Dibuja los obstáculos inflados encima de la imagen original.
-    """
     alto_px, ancho_px, _ = img_color.shape
-
     bx = ancho_px / celdas_ancho
     by = alto_px / celdas_alto
-
     overlay = img_color.copy()
 
     for fila in range(celdas_alto):
@@ -341,8 +308,6 @@ def animar_planificacion_opencv(ruta_imagen, grid, ruta, aristas, celdas_ancho, 
             1
         )
 
-    # Dibujar la ruta final encima del árbol
-    # Esta ruta NO está suavizada, por eso sí sale exactamente del árbol RRT.
     if ruta:
         for i in range(len(ruta) - 1):
             x1, y1, _ = ruta[i]
@@ -376,11 +341,6 @@ def animar_planificacion_opencv(ruta_imagen, grid, ruta, aristas, celdas_ancho, 
     cv2.waitKey(0)
     cv2.destroyAllWindows()
 
-
-# =========================================================================
-# 5. NODO ROS 2 PARA DIBUJAR MUROS Y SEGUIR LA RUTA
-# =========================================================================
-
 class TurtlesimPlannerNode(Node):
     def __init__(self, ruta_calculada, grid, start_pose, ruta_imagen, radio_robot_px):
         super().__init__("turtlesim_rrt_planner_node")
@@ -389,9 +349,7 @@ class TurtlesimPlannerNode(Node):
         self.grid = grid
         self.current_pose = None
         self.indice_ruta = 0
-
         self.vel_pub = self.create_publisher(Twist, "/turtle1/cmd_vel", 10)
-
         self.pose_sub = self.create_subscription(
             Pose,
             "/turtle1/pose",
@@ -449,10 +407,7 @@ class TurtlesimPlannerNode(Node):
 
         self.get_logger().info(f"Se detectaron {len(contornos)} estructuras de muros.")
 
-        # Levantar lápiz
         self.call_service_sync(self.pen_cli, SetPen.Request(off=1))
-
-        # Lápiz para muros
         muro_pen = SetPen.Request(r=255, g=0, b=127, width=3, off=0)
 
         for contorno in contornos:
@@ -498,7 +453,6 @@ class TurtlesimPlannerNode(Node):
                     )
                 )
 
-            # Cerrar contorno
             self.call_service_sync(
                 self.teleport_cli,
                 TeleportAbsolute.Request(
@@ -521,14 +475,12 @@ class TurtlesimPlannerNode(Node):
             )
         )
 
-        # Lápiz para la ruta
         self.call_service_sync(
             self.pen_cli,
             SetPen.Request(r=0, g=255, b=255, width=3, off=0)
         )
 
         self.get_logger().info("Iniciando navegación con ruta RRT...")
-
         self.timer = self.create_timer(0.05, self.ejecutar_controlador)
 
     def ejecutar_controlador(self):
@@ -550,7 +502,7 @@ class TurtlesimPlannerNode(Node):
             angulo_meta = math.atan2(dy, dx)
             error_angulo = angulo_meta - self.current_pose.theta
 
-            # Normalizar ángulo entre -pi y pi
+            # Normalizar ángulo
             error_angulo = math.atan2(
                 math.sin(error_angulo),
                 math.cos(error_angulo)
@@ -558,14 +510,12 @@ class TurtlesimPlannerNode(Node):
 
             msg = Twist()
 
-            # Si el error angular es grande, primero gira más y avanza menos
             if abs(error_angulo) > 0.5:
                 msg.linear.x = 0.2
             else:
                 msg.linear.x = min(1.8 * distancia_error, 1.2)
 
             msg.angular.z = 5.0 * error_angulo
-
             self.vel_pub.publish(msg)
 
         else:
@@ -574,24 +524,12 @@ class TurtlesimPlannerNode(Node):
             self.timer.cancel()
             raise SystemExit
 
-
-# =========================================================================
-# 6. MAIN
-# =========================================================================
-
 def main(args=None):
-    # Cambia esta ruta por la ruta absoluta de tu imagen
     nombre_imagen = "/home/coote/ros2_ws/src/RRT/RRT/obstaculos.png"
-
-    # Coordenadas Turtlesim
     inicio_turtlesim = (6.0, 10.0, -math.pi / 2)
     meta_turtlesim = (1.0, 1.0)
-
-    # Grid
     c_w = 60
     c_h = 60
-
-    # Radio de seguridad para inflar obstáculos
     r_robot_px = 14
 
     try:
@@ -624,11 +562,6 @@ def main(args=None):
             return
 
         print(f"Ruta generada desde el árbol RRT con {len(ruta)} puntos.")
-
-        # IMPORTANTE:
-        # Aquí NO se suaviza la ruta.
-        # Si suavizas, la ruta puede dejar de verse como una rama exacta del árbol.
-
         print("3. Mostrando planificación en OpenCV...")
 
         animar_planificacion_opencv(
